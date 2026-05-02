@@ -9,4 +9,4 @@ title: devlog
 
 ## PostgreSQL
 
-- [Rendezvous Variable](./postgresql-rendezvous-variable.md) — 拡張モジュール間でコンパイル時依存なしに実行時通信を行う仕組み
+- [Rendezvous Variable](./postgresql-rendezvous-variable.md) — 拡張モジュール間でコンパイル時依存なしに実行時通信を行う仕組み (2026-05-03)
