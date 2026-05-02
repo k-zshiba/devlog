@@ -1,4 +1,4 @@
-前日のソフトウェア関連ニュースダイジェストを生成します。
+ソフトウェア関連ニュースダイジェストを生成します。日付を指定しない場合は前日分を生成します。
 
 以下の手順を実行してください:
 
@@ -7,8 +7,11 @@
    source venv/bin/activate && pip3 install -r requirements.txt -q
    ```
 
-2. ダイジェスト生成スクリプトを実行する:
+2. ダイジェスト生成スクリプトを実行する。`$ARGUMENTS` に日付（YYYY-MM-DD形式）が指定されていれば引数として渡す:
    ```
+   # 日付指定あり
+   python3 scripts/generate_digest.py 2026-01-01
+   # 日付指定なし（前日分）
    python3 scripts/generate_digest.py
    ```
 
