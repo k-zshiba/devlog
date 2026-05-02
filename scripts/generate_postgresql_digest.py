@@ -165,7 +165,10 @@ def generate_digest(
     if result.returncode != 0:
         raise RuntimeError(f"claude CLI error: {result.stderr.strip()}")
 
-    return result.stdout.strip()
+    output = result.stdout.strip()
+    if "\n---\n" in output:
+        output = output.split("\n---\n", 1)[1].strip()
+    return output
 
 
 def save_digest(content: str, date: datetime) -> str:
