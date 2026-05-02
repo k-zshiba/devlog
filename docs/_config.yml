@@ -1,0 +1,17 @@
+title: devlog
+description: ソフトウェア開発に関するニュースまとめと調査メモ
+lang: ja
+theme: minima
+
+minima:
+  skin: auto
+
+markdown: kramdown
+kramdown:
+  input: GFM
+
+plugins:
+  - jekyll-feed
+
+exclude:
+  - "*.sh"
