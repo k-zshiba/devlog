@@ -112,7 +112,14 @@ def update_index(date: datetime) -> None:
 
 
 def main() -> None:
-    date = get_target_date(offset_days=1)
+    if len(sys.argv) > 1:
+        try:
+            date = datetime.strptime(sys.argv[1], "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        except ValueError:
+            print(f"Invalid date format: {sys.argv[1]}. Use YYYY-MM-DD.", file=sys.stderr)
+            sys.exit(1)
+    else:
+        date = get_target_date(offset_days=1)
     print(f"Fetching Hacker News stories for {date.strftime('%Y-%m-%d')}...")
 
     stories = fetch_hn_stories(date)
