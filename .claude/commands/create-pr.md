@@ -16,12 +16,12 @@ dev ブランチから main ブランチへの Pull Request を作成します�
 
 3. dev と main の差分コミットを確認する:
    ```
-   git log main..dev --oneline
+   git log origin/main..origin/dev --oneline
    ```
 
 4. 差分ファイルを確認する:
    ```
-   git diff main...dev --stat
+   git diff origin/main...origin/dev --stat
    ```
 
 5. コミット一覧と差分をもとに PR のタイトルと本文を作成して、`gh pr create` で Pull Request を作成する:
