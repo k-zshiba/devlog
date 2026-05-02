@@ -1,9 +1,12 @@
 ---
 layout: default
 title: PostgreSQL Rendezvous Variable
+date: 2026-05-03
 ---
 
 # PostgreSQL Rendezvous Variable
+
+*2026-05-03*
 
 ## 概要
 
