@@ -84,14 +84,15 @@ def generate_digest(stories: list[dict], date: datetime) -> str:
 
 
 def save_digest(content: str, date: datetime) -> str:
-    filename = f"docs/{date.strftime('%Y-%m-%d')}.md"
+    filename = f"digests/{date.strftime('%Y-%m-%d')}.md"
+    os.makedirs("digests", exist_ok=True)
     with open(filename, "w", encoding="utf-8") as f:
         f.write(content)
     return filename
 
 
 def update_index(date: datetime) -> None:
-    index_path = "docs/index.md"
+    index_path = "digests/index.md"
     date_str = date.strftime("%Y-%m-%d")
     new_entry = f"- [{date_str}](./{date_str}.md)"
 
@@ -105,7 +106,7 @@ def update_index(date: datetime) -> None:
 
     entries.insert(0, new_entry)
 
-    header = "---\nlayout: home\ntitle: Daily Dev News Digest\n---\n\n# Daily Dev News Digest\n\nHacker Newsをもとに毎日自動生成されるソフトウェア開発者向けニュースダイジェストです。\n\n"
+    header = "# Daily Dev News Digest\n\nHacker Newsをもとに毎日自動生成されるソフトウェア開発者向けニュースダイジェストです。\n\n"
     with open(index_path, "w", encoding="utf-8") as f:
         f.write(header + "\n".join(entries) + "\n")
 
@@ -126,7 +127,7 @@ def main() -> None:
     update_index(date)
 
     print(f"Digest saved to: {output_file}")
-    print("Index updated: docs/index.md")
+    print("Index updated: digests/index.md")
 
 
 if __name__ == "__main__":

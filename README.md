@@ -1,6 +1,14 @@
 # devlog
 
-ソフトウェア開発に関するニュースまとめと調査メモを日々記録するログ。Hacker Newsをもとに自動生成されるダイジェストと、自分で調べたことをマークダウンでまとめたメモを GitHub Pages で公開。
+ソフトウェア開発に関する調査メモを GitHub Pages で公開するブログ。Hacker Newsをもとに自動生成されるニュースダイジェストはローカル閲覧用として git で管理。
+
+## ディレクトリ構成
+
+| パス | 内容 |
+|------|------|
+| `docs/` | GitHub Pages 公開コンテンツ（調査メモ） |
+| `digests/` | ニュースダイジェスト（git 管理、Pages 非公開） |
+| `scripts/` | ダイジェスト生成スクリプト |
 
 ## 使い方
 
@@ -13,13 +21,11 @@ export ANTHROPIC_API_KEY=your_api_key_here
 
 ### ダイジェスト生成（Claude Code スキル）
 
-Claude Code 上で以下のコマンドを実行:
-
 ```
 /daily-news
 ```
 
-前日分のニュースダイジェストが `docs/YYYY-MM-DD.md` に生成されます。
+前日分のニュースダイジェストが `digests/YYYY-MM-DD.md` に生成されます。
 
 ### スクリプト直接実行
 
@@ -38,8 +44,3 @@ python3 scripts/generate_digest.py
 
 1. GitHubリポジトリの **Settings → Pages** を開く
 2. **Source** を `GitHub Actions` に設定
-
-## 生成物
-
-- `docs/YYYY-MM-DD.md` — 各日のニュースダイジェスト
-- `docs/index.md` — ダイジェスト一覧ページ
