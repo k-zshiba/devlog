@@ -23,6 +23,21 @@ THREAD_CHAR_LIMIT = 2000
 
 
 
+
+def resolve_postgresql_llm_cli(cli_arg: str | None) -> str:
+    """Resolve LLM CLI with Gemini SDK fallback when binary is unavailable."""
+    try:
+        return resolve_llm_cli(cli_arg)
+    except RuntimeError as err:
+        requested = cli_arg or os.getenv("DIGEST_LLM_CLI")
+        if requested == "gemini" and os.getenv("GEMINI_API_KEY"):
+            print(
+                "gemini CLIが見つからないため、Gemini SDK経由で実行します。",
+                file=sys.stderr,
+            )
+            return "gemini"
+        raise err
+
 def generate_with_gemini_sdk(prompt: str, system: str) -> str:
     try:
         import google.generativeai as genai
@@ -37,7 +52,11 @@ def generate_with_gemini_sdk(prompt: str, system: str) -> str:
 
     genai.configure(api_key=api_key)
     model = genai.GenerativeModel("gemini-2.0-flash")
-    response = model.generate_content(f"{system}\n\n{prompt}")
+    try:
+        response = model.generate_content(f"{system}\n\n{prompt}")
+    except Exception as err:
+        raise RuntimeError(f"Gemini SDK error: {err}") from err
+
     text = getattr(response, "text", "") or ""
     if not text.strip():
         raise RuntimeError("Gemini SDKから有効な応答を取得できませんでした。")
@@ -269,7 +288,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     try:
-        llm_cli = resolve_llm_cli(args.llm_cli)
+        llm_cli = resolve_postgresql_llm_cli(args.llm_cli)
     except RuntimeError as err:
         print(str(err), file=sys.stderr)
         sys.exit(1)
@@ -327,7 +346,15 @@ def main() -> None:
     try:
         digest = generate_digest(hn_stories, commits, commits_section, date, llm_cli)
     except RuntimeError as err:
-        print(str(err), file=sys.stderr)
+        message = str(err)
+        if llm_cli == "gemini" and any(token in message.lower() for token in ("quota", "resource_exhausted", "429")):
+            print(
+                "Gemini APIのクォータ超過のため、本日のPostgreSQLダイジェスト生成をスキップします。",
+                file=sys.stderr,
+            )
+            print(message, file=sys.stderr)
+            sys.exit(0)
+        print(message, file=sys.stderr)
         sys.exit(1)
 
     output_file = save_digest(digest, date)
