@@ -33,6 +33,14 @@ export ANTHROPIC_API_KEY=your_api_key_here
 python3 scripts/generate_digest.py
 ```
 
+### 利用するCLIの指定（Claude / Codex / Gemini）
+
+```bash
+python3 scripts/generate_digest.py --llm-cli gemini
+```
+
+`--llm-cli` には `claude` / `codex` / `gemini` を指定できます。未指定時は、`codex` → `claude` → `gemini` の順で利用可能なCLIを自動選択します。
+
 ## ブランチ運用
 
 | ブランチ | 用途 |

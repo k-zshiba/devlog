@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 """Generate a daily PostgreSQL digest from HN, git commits, and mailing list discussions."""
 
+import argparse
+import html
 import os
 import re
 import sys
 import subprocess
 import requests
+from requests import RequestException
 from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(__file__))
-from generate_digest import get_target_date, build_stories_text
+from generate_digest import get_target_date, build_stories_text, resolve_llm_cli
 
 ALGOLIA_HN_URL = "https://hn.algolia.com/api/v1/search_by_date"
 GITHUB_COMMITS_URL = "https://api.github.com/repos/postgres/postgres/commits"
@@ -71,9 +74,18 @@ def fetch_thread_text(url: str) -> str | None:
         if not pre_blocks:
             return None
 
-        text = "\n\n---\n\n".join(
-            re.sub(r"<[^>]+>", "", block).strip() for block in pre_blocks[:3]
-        )
+        text_blocks = []
+        for block in pre_blocks[:3]:
+            plain = re.sub(r"<[^>]+>", "", block)
+            plain = html.unescape(plain)
+            plain = re.sub(r"\n{3,}", "\n\n", plain).strip()
+            if plain:
+                text_blocks.append(plain)
+
+        if not text_blocks:
+            return None
+
+        text = "\n\n---\n\n".join(text_blocks)
         return text[:THREAD_CHAR_LIMIT]
     except Exception:
         return None
@@ -122,6 +134,7 @@ def generate_digest(
     commits: list[dict],
     commits_section: str,
     date: datetime,
+    llm_cli: str,
 ) -> str:
     date_ja = date.strftime("%Y年%m月%d日")
     date_str = date.strftime("%Y-%m-%d")
@@ -144,7 +157,7 @@ def generate_digest(
   3. **まとめ** — 当日の注目ポイントを2〜3文で総括する
 - 各項目に1〜2文の日本語説明を追加する
 - 特に重要度の高いものには ⭐ を付ける
-- 末尾に「本ダイジェストはHacker News・GitHub・PostgreSQLメーリングリストの情報を元にClaude AIが生成しました。」と記載する
+- 末尾に「本ダイジェストはHacker News・GitHub・PostgreSQLメーリングリストの情報を元に{llm_cli}で生成しました。」と記載する
 
 ## コミット（{len(commits)}件）
 
@@ -155,15 +168,26 @@ def generate_digest(
 {hn_text}
 """
 
+    if llm_cli == "claude":
+        cmd = [llm_cli, "-p", user_prompt, "--system-prompt", system]
+    elif llm_cli == "codex":
+        merged_prompt = f"{system}\n\n{user_prompt}"
+        cmd = [llm_cli, "exec", merged_prompt]
+    elif llm_cli == "gemini":
+        merged_prompt = f"{system}\n\n{user_prompt}"
+        cmd = [llm_cli, "-p", merged_prompt]
+    else:
+        raise RuntimeError(f"Unsupported llm_cli: {llm_cli}")
+
     result = subprocess.run(
-        ["claude", "-p", user_prompt, "--system-prompt", system],
+        cmd,
         capture_output=True,
         text=True,
         timeout=180,
     )
 
     if result.returncode != 0:
-        raise RuntimeError(f"claude CLI error: {result.stderr.strip()}")
+        raise RuntimeError(f"{llm_cli} CLI error: {result.stderr.strip()}")
 
     output = result.stdout.strip()
     if "\n---\n" in output:
@@ -177,6 +201,12 @@ def save_digest(content: str, date: datetime) -> str:
     with open(filename, "w", encoding="utf-8") as f:
         f.write(content)
     return filename
+
+
+def load_digest_overview(filename: str, max_lines: int = 20) -> str:
+    with open(filename, encoding="utf-8") as f:
+        lines = [line.rstrip() for line in f.readlines()]
+    return "\n".join(lines[:max_lines]).strip()
 
 
 def update_index(date: datetime) -> None:
@@ -199,42 +229,77 @@ def update_index(date: datetime) -> None:
         f.write(header + "\n".join(entries) + "\n")
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("date", nargs="?", help="Target date in YYYY-MM-DD format")
+    parser.add_argument("--llm-cli", choices=["claude", "codex", "gemini"])
+    return parser.parse_args()
+
+
 def main() -> None:
-    if len(sys.argv) > 1:
+    args = parse_args()
+    llm_cli = resolve_llm_cli(args.llm_cli)
+    if args.date:
         try:
-            date = datetime.strptime(sys.argv[1], "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            date = datetime.strptime(args.date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
         except ValueError:
-            print(f"Invalid date format: {sys.argv[1]}. Use YYYY-MM-DD.", file=sys.stderr)
+            print(f"Invalid date format: {args.date}. Use YYYY-MM-DD.", file=sys.stderr)
             sys.exit(1)
     else:
         date = get_target_date(offset_days=1)
 
     date_str = date.strftime("%Y-%m-%d")
+    required_key_by_cli = {
+        "claude": "ANTHROPIC_API_KEY",
+        "codex": "OPENAI_API_KEY",
+        "gemini": "GEMINI_API_KEY",
+    }
+    required_key = required_key_by_cli.get(llm_cli)
+    if required_key and not os.getenv(required_key):
+        print(
+            f"{required_key} が未設定です。{llm_cli} CLIを使う場合は環境変数を設定してください。",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
     print(f"Fetching data for {date_str}...")
 
-    print("  [1/3] Fetching HN stories...")
-    hn_stories = fetch_hn_stories(date)
-    print(f"        Found {len(hn_stories)} HN stories.")
+    try:
+        print("  [1/3] Fetching HN stories...")
+        hn_stories = fetch_hn_stories(date)
+        print(f"        Found {len(hn_stories)} HN stories.")
 
-    print("  [2/3] Fetching PostgreSQL commits...")
-    commits = fetch_pg_commits(date)
-    print(f"        Found {len(commits)} commits.")
+        print("  [2/3] Fetching PostgreSQL commits...")
+        commits = fetch_pg_commits(date)
+        print(f"        Found {len(commits)} commits.")
+    except RequestException as err:
+        print(f"ネットワークエラーが発生しました: {err}", file=sys.stderr)
+        sys.exit(1)
 
     if not hn_stories and not commits:
-        print("No data found for the target date.", file=sys.stderr)
+        print(
+            "該当日にPostgreSQLのストーリー/コミットが見つかりませんでした。",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    if not hn_stories:
+        print("該当日にPostgreSQLのストーリーが見つかりませんでした。", file=sys.stderr)
         sys.exit(1)
 
     print("  [3/3] Fetching mailing list discussions...")
     commits_section = build_commits_section(commits)
 
-    print("Generating digest with Claude...")
-    digest = generate_digest(hn_stories, commits, commits_section, date)
+    print(f"Generating digest with {llm_cli}...")
+    digest = generate_digest(hn_stories, commits, commits_section, date, llm_cli)
 
     output_file = save_digest(digest, date)
     update_index(date)
+    overview = load_digest_overview(output_file)
 
     print(f"Digest saved to: {output_file}")
     print("Index updated: digests/postgresql/index.md")
+    print("\n=== Digest Overview ===")
+    print(overview)
 
 
 if __name__ == "__main__":
