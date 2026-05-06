@@ -7,6 +7,7 @@ import os
 import re
 import sys
 import subprocess
+import shutil
 import requests
 from requests import RequestException
 from datetime import datetime, timezone
@@ -20,6 +21,27 @@ HN_LIMIT = 30
 COMMITS_LIMIT = 50
 THREAD_CHAR_LIMIT = 2000
 
+
+
+def generate_with_gemini_sdk(prompt: str, system: str) -> str:
+    try:
+        import google.generativeai as genai
+    except ImportError as err:
+        raise RuntimeError(
+            "gemini CLIが見つからず、Gemini SDKも利用できません。requirements.txt の依存をインストールしてください。"
+        ) from err
+
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        raise RuntimeError("GEMINI_API_KEY が未設定です。")
+
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel("gemini-2.0-flash")
+    response = model.generate_content(f"{system}\n\n{prompt}")
+    text = getattr(response, "text", "") or ""
+    if not text.strip():
+        raise RuntimeError("Gemini SDKから有効な応答を取得できませんでした。")
+    return text.strip()
 
 def fetch_hn_stories(date: datetime) -> list[dict]:
     start_ts = int(date.timestamp())
@@ -175,16 +197,24 @@ def generate_digest(
         cmd = [llm_cli, "exec", merged_prompt]
     elif llm_cli == "gemini":
         merged_prompt = f"{system}\n\n{user_prompt}"
-        cmd = [llm_cli, "-p", merged_prompt]
+        if shutil.which("gemini"):
+            cmd = [llm_cli, "-p", merged_prompt]
+        else:
+            return generate_with_gemini_sdk(user_prompt, system)
     else:
         raise RuntimeError(f"Unsupported llm_cli: {llm_cli}")
 
-    result = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        timeout=180,
-    )
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+    except FileNotFoundError as err:
+        raise RuntimeError(
+            f"{llm_cli} CLIが見つかりません。PATHに存在するか確認してください。 ({err})"
+        ) from err
 
     if result.returncode != 0:
         raise RuntimeError(f"{llm_cli} CLI error: {result.stderr.strip()}")
@@ -238,7 +268,11 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    llm_cli = resolve_llm_cli(args.llm_cli)
+    try:
+        llm_cli = resolve_llm_cli(args.llm_cli)
+    except RuntimeError as err:
+        print(str(err), file=sys.stderr)
+        sys.exit(1)
     if args.date:
         try:
             date = datetime.strptime(args.date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
@@ -290,7 +324,11 @@ def main() -> None:
     commits_section = build_commits_section(commits)
 
     print(f"Generating digest with {llm_cli}...")
-    digest = generate_digest(hn_stories, commits, commits_section, date, llm_cli)
+    try:
+        digest = generate_digest(hn_stories, commits, commits_section, date, llm_cli)
+    except RuntimeError as err:
+        print(str(err), file=sys.stderr)
+        sys.exit(1)
 
     output_file = save_digest(digest, date)
     update_index(date)
