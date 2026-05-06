@@ -77,6 +77,9 @@ def generate_digest(stories: list[dict], date: datetime, llm_cli: str) -> str:
     elif llm_cli == "codex":
         merged_prompt = f"{system}\n\n{user_prompt}"
         cmd = [llm_cli, "exec", merged_prompt]
+    elif llm_cli == "gemini":
+        merged_prompt = f"{system}\n\n{user_prompt}"
+        cmd = [llm_cli, "-p", merged_prompt]
     else:
         raise RuntimeError(f"Unsupported llm_cli: {llm_cli}")
 
@@ -99,11 +102,13 @@ def resolve_llm_cli(cli_arg: str | None) -> str:
     env_cli = os.getenv("DIGEST_LLM_CLI")
     if env_cli:
         return env_cli
-    if shutil.which("claude"):
-        return "claude"
     if shutil.which("codex"):
         return "codex"
-    raise RuntimeError("No supported CLI found. Install `claude` or `codex`, or pass --llm-cli.")
+    if shutil.which("claude"):
+        return "claude"
+    if shutil.which("gemini"):
+        return "gemini"
+    raise RuntimeError("No supported CLI found. Install `codex`, `claude`, or `gemini`, or pass --llm-cli.")
 
 
 def save_digest(content: str, date: datetime) -> str:
@@ -137,7 +142,7 @@ def update_index(date: datetime) -> None:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("date", nargs="?", help="Target date in YYYY-MM-DD format")
-    parser.add_argument("--llm-cli", choices=["claude", "codex"])
+    parser.add_argument("--llm-cli", choices=["claude", "codex", "gemini"])
     return parser.parse_args()
 
 
