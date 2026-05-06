@@ -47,7 +47,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           base: main
-          branch: chore/pg-digest-${{ github.run_id }}
+          branch: chore/pg-digest
           delete-branch: true
           commit-message: "Add PostgreSQL digest"
           title: "Add PostgreSQL digest"
