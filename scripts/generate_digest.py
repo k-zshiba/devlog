@@ -98,16 +98,23 @@ def generate_digest(stories: list[dict], date: datetime, llm_cli: str) -> str:
 
 def resolve_llm_cli(cli_arg: str | None) -> str:
     if cli_arg:
-        return cli_arg
+        if shutil.which(cli_arg):
+            return cli_arg
+        raise RuntimeError(f"Requested CLI '{cli_arg}' is not installed or not in PATH.")
+
     env_cli = os.getenv("DIGEST_LLM_CLI")
     if env_cli:
-        return env_cli
-    if shutil.which("codex"):
-        return "codex"
-    if shutil.which("claude"):
-        return "claude"
-    if shutil.which("gemini"):
-        return "gemini"
+        if shutil.which(env_cli):
+            return env_cli
+        print(
+            f"DIGEST_LLM_CLI={env_cli} が指定されていますが、CLIが見つからないため自動選択にフォールバックします。",
+            file=sys.stderr,
+        )
+
+    for candidate in ("codex", "claude", "gemini"):
+        if shutil.which(candidate):
+            return candidate
+
     raise RuntimeError("No supported CLI found. Install `codex`, `claude`, or `gemini`, or pass --llm-cli.")
 
 
