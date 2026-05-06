@@ -7,6 +7,7 @@ import re
 import sys
 import subprocess
 import requests
+from requests import RequestException
 from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(__file__))
@@ -189,6 +190,12 @@ def save_digest(content: str, date: datetime) -> str:
     return filename
 
 
+def load_digest_overview(filename: str, max_lines: int = 20) -> str:
+    with open(filename, encoding="utf-8") as f:
+        lines = [line.rstrip() for line in f.readlines()]
+    return "\n".join(lines[:max_lines]).strip()
+
+
 def update_index(date: datetime) -> None:
     index_path = "digests/postgresql/index.md"
     date_str = date.strftime("%Y-%m-%d")
@@ -212,7 +219,7 @@ def update_index(date: datetime) -> None:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("date", nargs="?", help="Target date in YYYY-MM-DD format")
-    parser.add_argument("--llm-cli", choices=["claude", "codex"])
+    parser.add_argument("--llm-cli", choices=["claude", "codex", "gemini"])
     return parser.parse_args()
 
 
@@ -229,18 +236,41 @@ def main() -> None:
         date = get_target_date(offset_days=1)
 
     date_str = date.strftime("%Y-%m-%d")
+    required_key_by_cli = {
+        "claude": "ANTHROPIC_API_KEY",
+        "codex": "OPENAI_API_KEY",
+        "gemini": "GEMINI_API_KEY",
+    }
+    required_key = required_key_by_cli.get(llm_cli)
+    if required_key and not os.getenv(required_key):
+        print(
+            f"{required_key} が未設定です。{llm_cli} CLIを使う場合は環境変数を設定してください。",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
     print(f"Fetching data for {date_str}...")
 
-    print("  [1/3] Fetching HN stories...")
-    hn_stories = fetch_hn_stories(date)
-    print(f"        Found {len(hn_stories)} HN stories.")
+    try:
+        print("  [1/3] Fetching HN stories...")
+        hn_stories = fetch_hn_stories(date)
+        print(f"        Found {len(hn_stories)} HN stories.")
 
-    print("  [2/3] Fetching PostgreSQL commits...")
-    commits = fetch_pg_commits(date)
-    print(f"        Found {len(commits)} commits.")
+        print("  [2/3] Fetching PostgreSQL commits...")
+        commits = fetch_pg_commits(date)
+        print(f"        Found {len(commits)} commits.")
+    except RequestException as err:
+        print(f"ネットワークエラーが発生しました: {err}", file=sys.stderr)
+        sys.exit(1)
 
     if not hn_stories and not commits:
-        print("No data found for the target date.", file=sys.stderr)
+        print(
+            "該当日にPostgreSQLのストーリー/コミットが見つかりませんでした。",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    if not hn_stories:
+        print("該当日にPostgreSQLのストーリーが見つかりませんでした。", file=sys.stderr)
         sys.exit(1)
 
     print("  [3/3] Fetching mailing list discussions...")
@@ -251,9 +281,12 @@ def main() -> None:
 
     output_file = save_digest(digest, date)
     update_index(date)
+    overview = load_digest_overview(output_file)
 
     print(f"Digest saved to: {output_file}")
     print("Index updated: digests/postgresql/index.md")
+    print("\n=== Digest Overview ===")
+    print(overview)
 
 
 if __name__ == "__main__":
