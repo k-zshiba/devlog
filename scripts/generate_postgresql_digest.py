@@ -23,6 +23,21 @@ THREAD_CHAR_LIMIT = 2000
 
 
 
+
+def resolve_postgresql_llm_cli(cli_arg: str | None) -> str:
+    """Resolve LLM CLI with Gemini SDK fallback when binary is unavailable."""
+    try:
+        return resolve_llm_cli(cli_arg)
+    except RuntimeError as err:
+        requested = cli_arg or os.getenv("DIGEST_LLM_CLI")
+        if requested == "gemini" and os.getenv("GEMINI_API_KEY"):
+            print(
+                "gemini CLIが見つからないため、Gemini SDK経由で実行します。",
+                file=sys.stderr,
+            )
+            return "gemini"
+        raise err
+
 def generate_with_gemini_sdk(prompt: str, system: str) -> str:
     try:
         import google.generativeai as genai
@@ -269,7 +284,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     try:
-        llm_cli = resolve_llm_cli(args.llm_cli)
+        llm_cli = resolve_postgresql_llm_cli(args.llm_cli)
     except RuntimeError as err:
         print(str(err), file=sys.stderr)
         sys.exit(1)
