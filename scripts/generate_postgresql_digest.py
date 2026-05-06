@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Generate a daily PostgreSQL digest from HN, git commits, and mailing list discussions."""
 
+import argparse
 import os
 import re
 import sys
@@ -9,7 +10,7 @@ import requests
 from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(__file__))
-from generate_digest import get_target_date, build_stories_text
+from generate_digest import get_target_date, build_stories_text, resolve_llm_cli
 
 ALGOLIA_HN_URL = "https://hn.algolia.com/api/v1/search_by_date"
 GITHUB_COMMITS_URL = "https://api.github.com/repos/postgres/postgres/commits"
@@ -122,6 +123,7 @@ def generate_digest(
     commits: list[dict],
     commits_section: str,
     date: datetime,
+    llm_cli: str,
 ) -> str:
     date_ja = date.strftime("%Y年%m月%d日")
     date_str = date.strftime("%Y-%m-%d")
@@ -144,7 +146,7 @@ def generate_digest(
   3. **まとめ** — 当日の注目ポイントを2〜3文で総括する
 - 各項目に1〜2文の日本語説明を追加する
 - 特に重要度の高いものには ⭐ を付ける
-- 末尾に「本ダイジェストはHacker News・GitHub・PostgreSQLメーリングリストの情報を元にClaude AIが生成しました。」と記載する
+- 末尾に「本ダイジェストはHacker News・GitHub・PostgreSQLメーリングリストの情報を元に{llm_cli}で生成しました。」と記載する
 
 ## コミット（{len(commits)}件）
 
@@ -155,15 +157,23 @@ def generate_digest(
 {hn_text}
 """
 
+    if llm_cli == "claude":
+        cmd = [llm_cli, "-p", user_prompt, "--system-prompt", system]
+    elif llm_cli == "codex":
+        merged_prompt = f"{system}\n\n{user_prompt}"
+        cmd = [llm_cli, "exec", merged_prompt]
+    else:
+        raise RuntimeError(f"Unsupported llm_cli: {llm_cli}")
+
     result = subprocess.run(
-        ["claude", "-p", user_prompt, "--system-prompt", system],
+        cmd,
         capture_output=True,
         text=True,
         timeout=180,
     )
 
     if result.returncode != 0:
-        raise RuntimeError(f"claude CLI error: {result.stderr.strip()}")
+        raise RuntimeError(f"{llm_cli} CLI error: {result.stderr.strip()}")
 
     output = result.stdout.strip()
     if "\n---\n" in output:
@@ -199,12 +209,21 @@ def update_index(date: datetime) -> None:
         f.write(header + "\n".join(entries) + "\n")
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("date", nargs="?", help="Target date in YYYY-MM-DD format")
+    parser.add_argument("--llm-cli", choices=["claude", "codex"])
+    return parser.parse_args()
+
+
 def main() -> None:
-    if len(sys.argv) > 1:
+    args = parse_args()
+    llm_cli = resolve_llm_cli(args.llm_cli)
+    if args.date:
         try:
-            date = datetime.strptime(sys.argv[1], "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            date = datetime.strptime(args.date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
         except ValueError:
-            print(f"Invalid date format: {sys.argv[1]}. Use YYYY-MM-DD.", file=sys.stderr)
+            print(f"Invalid date format: {args.date}. Use YYYY-MM-DD.", file=sys.stderr)
             sys.exit(1)
     else:
         date = get_target_date(offset_days=1)
@@ -227,8 +246,8 @@ def main() -> None:
     print("  [3/3] Fetching mailing list discussions...")
     commits_section = build_commits_section(commits)
 
-    print("Generating digest with Claude...")
-    digest = generate_digest(hn_stories, commits, commits_section, date)
+    print(f"Generating digest with {llm_cli}...")
+    digest = generate_digest(hn_stories, commits, commits_section, date, llm_cli)
 
     output_file = save_digest(digest, date)
     update_index(date)
