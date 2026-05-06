@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""Generate a daily software news digest from Hacker News using Claude."""
+"""Generate a daily software news digest from Hacker News."""
 
+import argparse
 import os
 import sys
 import subprocess
+import shutil
 import requests
 from datetime import datetime, timedelta, timezone
 
@@ -45,7 +47,7 @@ def build_stories_text(stories: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def generate_digest(stories: list[dict], date: datetime) -> str:
+def generate_digest(stories: list[dict], date: datetime, llm_cli: str) -> str:
     date_ja = date.strftime("%Y年%m月%d日")
     date_str = date.strftime("%Y-%m-%d")
     stories_text = build_stories_text(stories)
@@ -64,23 +66,36 @@ def generate_digest(stories: list[dict], date: datetime) -> str:
 - カテゴリ別に整理する（例: AI/ML, セキュリティ, 言語/ツール, インフラ/クラウド, その他）
 - 各記事に1〜2文の日本語説明を追加する
 - 特に重要度の高い記事には ⭐ を付ける
-- 末尾に「本ダイジェストはHacker Newsの情報を元にClaude AIが生成しました。」と記載する
+- 末尾に「本ダイジェストはHacker Newsの情報を元に{llm_cli}で生成しました。」と記載する
 
 ## ストーリー一覧
 {stories_text}
 """
 
     result = subprocess.run(
-        ["claude", "-p", user_prompt, "--system-prompt", system],
+        [llm_cli, "-p", user_prompt, "--system-prompt", system],
         capture_output=True,
         text=True,
         timeout=120,
     )
 
     if result.returncode != 0:
-        raise RuntimeError(f"claude CLI error: {result.stderr.strip()}")
+        raise RuntimeError(f"{llm_cli} CLI error: {result.stderr.strip()}")
 
     return result.stdout.strip()
+
+
+def resolve_llm_cli(cli_arg: str | None) -> str:
+    if cli_arg:
+        return cli_arg
+    env_cli = os.getenv("DIGEST_LLM_CLI")
+    if env_cli:
+        return env_cli
+    if shutil.which("claude"):
+        return "claude"
+    if shutil.which("codex"):
+        return "codex"
+    raise RuntimeError("No supported CLI found. Install `claude` or `codex`, or pass --llm-cli.")
 
 
 def save_digest(content: str, date: datetime) -> str:
@@ -111,12 +126,21 @@ def update_index(date: datetime) -> None:
         f.write(header + "\n".join(entries) + "\n")
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("date", nargs="?", help="Target date in YYYY-MM-DD format")
+    parser.add_argument("--llm-cli", choices=["claude", "codex"])
+    return parser.parse_args()
+
+
 def main() -> None:
-    if len(sys.argv) > 1:
+    args = parse_args()
+    llm_cli = resolve_llm_cli(args.llm_cli)
+    if args.date:
         try:
-            date = datetime.strptime(sys.argv[1], "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            date = datetime.strptime(args.date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
         except ValueError:
-            print(f"Invalid date format: {sys.argv[1]}. Use YYYY-MM-DD.", file=sys.stderr)
+            print(f"Invalid date format: {args.date}. Use YYYY-MM-DD.", file=sys.stderr)
             sys.exit(1)
     else:
         date = get_target_date(offset_days=1)
@@ -127,8 +151,8 @@ def main() -> None:
         print("No stories found for the target date.", file=sys.stderr)
         sys.exit(1)
 
-    print(f"Found {len(stories)} stories. Generating digest with Claude...")
-    digest = generate_digest(stories, date)
+    print(f"Found {len(stories)} stories. Generating digest with {llm_cli}...")
+    digest = generate_digest(stories, date, llm_cli)
 
     output_file = save_digest(digest, date)
     update_index(date)
