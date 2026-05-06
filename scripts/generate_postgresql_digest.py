@@ -52,7 +52,11 @@ def generate_with_gemini_sdk(prompt: str, system: str) -> str:
 
     genai.configure(api_key=api_key)
     model = genai.GenerativeModel("gemini-2.0-flash")
-    response = model.generate_content(f"{system}\n\n{prompt}")
+    try:
+        response = model.generate_content(f"{system}\n\n{prompt}")
+    except Exception as err:
+        raise RuntimeError(f"Gemini SDK error: {err}") from err
+
     text = getattr(response, "text", "") or ""
     if not text.strip():
         raise RuntimeError("Gemini SDKから有効な応答を取得できませんでした。")
@@ -342,7 +346,15 @@ def main() -> None:
     try:
         digest = generate_digest(hn_stories, commits, commits_section, date, llm_cli)
     except RuntimeError as err:
-        print(str(err), file=sys.stderr)
+        message = str(err)
+        if llm_cli == "gemini" and any(token in message.lower() for token in ("quota", "resource_exhausted", "429")):
+            print(
+                "Gemini APIのクォータ超過のため、本日のPostgreSQLダイジェスト生成をスキップします。",
+                file=sys.stderr,
+            )
+            print(message, file=sys.stderr)
+            sys.exit(0)
+        print(message, file=sys.stderr)
         sys.exit(1)
 
     output_file = save_digest(digest, date)
