@@ -2,6 +2,7 @@
 """Generate a daily PostgreSQL digest from HN, git commits, and mailing list discussions."""
 
 import argparse
+import html
 import os
 import re
 import sys
@@ -73,9 +74,18 @@ def fetch_thread_text(url: str) -> str | None:
         if not pre_blocks:
             return None
 
-        text = "\n\n---\n\n".join(
-            re.sub(r"<[^>]+>", "", block).strip() for block in pre_blocks[:3]
-        )
+        text_blocks = []
+        for block in pre_blocks[:3]:
+            plain = re.sub(r"<[^>]+>", "", block)
+            plain = html.unescape(plain)
+            plain = re.sub(r"\n{3,}", "\n\n", plain).strip()
+            if plain:
+                text_blocks.append(plain)
+
+        if not text_blocks:
+            return None
+
+        text = "\n\n---\n\n".join(text_blocks)
         return text[:THREAD_CHAR_LIMIT]
     except Exception:
         return None
