@@ -179,12 +179,17 @@ def generate_digest(
     else:
         raise RuntimeError(f"Unsupported llm_cli: {llm_cli}")
 
-    result = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        timeout=180,
-    )
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+    except FileNotFoundError as err:
+        raise RuntimeError(
+            f"{llm_cli} CLIが見つかりません。PATHに存在するか確認してください。 ({err})"
+        ) from err
 
     if result.returncode != 0:
         raise RuntimeError(f"{llm_cli} CLI error: {result.stderr.strip()}")
@@ -238,7 +243,11 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    llm_cli = resolve_llm_cli(args.llm_cli)
+    try:
+        llm_cli = resolve_llm_cli(args.llm_cli)
+    except RuntimeError as err:
+        print(str(err), file=sys.stderr)
+        sys.exit(1)
     if args.date:
         try:
             date = datetime.strptime(args.date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
@@ -290,7 +299,11 @@ def main() -> None:
     commits_section = build_commits_section(commits)
 
     print(f"Generating digest with {llm_cli}...")
-    digest = generate_digest(hn_stories, commits, commits_section, date, llm_cli)
+    try:
+        digest = generate_digest(hn_stories, commits, commits_section, date, llm_cli)
+    except RuntimeError as err:
+        print(str(err), file=sys.stderr)
+        sys.exit(1)
 
     output_file = save_digest(digest, date)
     update_index(date)
