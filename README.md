@@ -107,3 +107,6 @@ CI では `SITE_BASEURL` を使い、一時コピーに本番・PR ごとの公�
 3. ブランチを `gh-pages`、フォルダを `/ (root)` に設定
 
 GitHub Actions が生成済み HTML を `gh-pages` ブランチへ配置します。
+`GITHUB_TOKEN` による push では Pages のビルドが自動起動しないため、
+本番・PR プレビューとも配置後に Pages API でビルドをリクエストします。
+プレビューのリンクは、その後の Pages デプロイ完了後にアクセスできます。
