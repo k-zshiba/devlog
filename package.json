@@ -1,0 +1,17 @@
+{
+  "name": "devlog",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "prepare:content": "node scripts/build-content.mjs prepare",
+    "build:slides": "node scripts/build-content.mjs slides",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "@marp-team/marp-cli": "4.5.1",
+    "js-yaml": "4.3.2"
+  }
+}

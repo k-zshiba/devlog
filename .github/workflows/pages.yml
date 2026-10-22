@@ -19,11 +19,31 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install content tools
+        run: npm ci
+
+      - name: Test content routing
+        run: npm test
+
+      - name: Prepare articles for Jekyll
+        env:
+          SITE_BASEURL: /${{ github.event.repository.name }}
+        run: npm run prepare:content
+
       - name: Build with Jekyll
         uses: actions/jekyll-build-pages@v1
         with:
-          source: ./docs
+          source: ./.build/docs
           destination: ./_site
+
+      - name: Build Marp slides
+        run: npm run build:slides
 
       - name: Deploy to gh-pages branch
         uses: JamesIves/github-pages-deploy-action@v4

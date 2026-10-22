@@ -9,4 +9,8 @@ title: devlog
 
 ## PostgreSQL
 
-- [Rendezvous Variable](./postgresql-rendezvous-variable.md) — 拡張モジュール間でコンパイル時依存なしに実行時通信を行う仕組み (2026-05-03)
+- [Rendezvous Variable]({{ '/postgresql-rendezvous-variable.html' | relative_url }}) — 拡張モジュール間でコンパイル時依存なしに実行時通信を行う仕組み (2026-05-03)
+
+## スライド
+
+- [Marp スライドの書き方]({{ '/marp-example.html' | relative_url }})
