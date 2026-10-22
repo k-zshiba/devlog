@@ -63,7 +63,8 @@ paginate: true
 
 スライド内の画像は Markdown からの相対パスで参照できます。
 画像などのアセットは記事と共通で公開されます。
-スライドの実例は `docs/marp-example.md` を参照してください。
+スライド内の HTML タグも有効です。
+スライドの実例は `docs/postgresql-casts/casts.md` を参照してください。
 
 ## ローカルのビルド・プレビュー
 
@@ -106,3 +107,6 @@ CI では `SITE_BASEURL` を使い、一時コピーに本番・PR ごとの公�
 3. ブランチを `gh-pages`、フォルダを `/ (root)` に設定
 
 GitHub Actions が生成済み HTML を `gh-pages` ブランチへ配置します。
+`GITHUB_TOKEN` による push では Pages のビルドが自動起動しないため、
+本番・PR プレビューとも配置後に Pages API でビルドをリクエストします。
+プレビューのリンクは、その後の Pages デプロイ完了後にアクセスできます。

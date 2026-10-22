@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  pages: write
 
 concurrency:
   group: pages-main
@@ -42,6 +43,9 @@ jobs:
           source: ./.build/docs
           destination: ./_site
 
+      - name: Restore site output ownership
+        run: sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE/_site"
+
       - name: Build Marp slides
         run: npm run build:slides
 
@@ -51,3 +55,8 @@ jobs:
           branch: gh-pages
           folder: ./_site
           clean-exclude: pr-preview/
+
+      - name: Request GitHub Pages build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api --method POST "repos/$GITHUB_REPOSITORY/pages/builds"
