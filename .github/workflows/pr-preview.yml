@@ -20,12 +20,37 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up Node.js
+        if: github.event.action != 'closed'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install content tools
+        if: github.event.action != 'closed'
+        run: npm ci
+
+      - name: Test content routing
+        if: github.event.action != 'closed'
+        run: npm test
+
+      - name: Prepare articles for Jekyll
+        if: github.event.action != 'closed'
+        env:
+          SITE_BASEURL: /${{ github.event.repository.name }}/pr-preview/pr-${{ github.event.number }}
+        run: npm run prepare:content
+
       - name: Build with Jekyll
         if: github.event.action != 'closed'
         uses: actions/jekyll-build-pages@v1
         with:
-          source: ./docs
+          source: ./.build/docs
           destination: ./_site
+
+      - name: Build Marp slides
+        if: github.event.action != 'closed'
+        run: npm run build:slides
 
       - name: Deploy PR Preview
         uses: rossjrw/pr-preview-action@v1
