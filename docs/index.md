@@ -1,17 +1,36 @@
 ---
-layout: home
+layout: default
 title: devlog
 ---
 
 # devlog
 
-ソフトウェア開発に関する調査メモ。
+ソフトウェア開発の調査メモと発表資料。
 
-## PostgreSQL
+PostgreSQLを中心に、ソースコードや技術書を読んで調べたことをまとめています。
 
-- [Rendezvous Variable]({{ '/postgresql-rendezvous-variable.html' | relative_url }}) — 拡張モジュール間でコンパイル時依存なしに実行時通信を行う仕組み (2026-05-03)
+---
+
+## 調査メモ
+
+### [PostgreSQL Rendezvous Variable]({{ '/postgresql-rendezvous-variable.html' | relative_url }})
+
+拡張モジュール間で、コンパイル時の依存なしにAPIを受け渡す仕組み。
+
+*2026-05-03*
+
+---
 
 ## スライド
 
-- [PostgreSQLの型変換：SQLからC関数まで]({{ '/postgresql-casts/casts.html' | relative_url }})
-- [Marp スライドの書き方]({{ '/marp-example.html' | relative_url }})
+### [PostgreSQLの型変換：SQLからC関数まで]({{ '/postgresql-casts/casts.html' | relative_url }})
+
+暗黙・代入・明示のキャストから、変換関数とunknownの扱いまで。
+
+*15分 · 本編22枚＋付録3枚*
+
+### [Marpスライドの書き方]({{ '/marp-example.html' | relative_url }})
+
+Markdownで資料を作るための設定、ページ区切り、基本操作。
+
+*3枚*
