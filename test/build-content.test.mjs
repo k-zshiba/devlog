@@ -66,7 +66,7 @@ test('sets the preview base path only in the staged Jekyll config', async (t) =>
 
 test('converts a nested Japanese deck to slide HTML without rendering articles', async (t) => {
   const { root, source } = await fixture(t, {
-    'talk/deck.md': '---\nmarp: true\ntitle: 日本語テスト\npaginate: true\n---\n# 一枚目\n\n---\n\n# 二枚目\n',
+    'talk/deck.md': '---\nmarp: true\ntitle: 日本語テスト\npaginate: true\n---\n# 一枚目\n\n<div class="card">図の内容</div>\n\n---\n\n# 二枚目\n',
     'article.md': '---\nmarp: false\n---\n# Article',
   });
   const destination = path.join(root, 'site');
@@ -75,6 +75,7 @@ test('converts a nested Japanese deck to slide HTML without rendering articles',
   assert.match(html, /<title>日本語テスト<\/title>/);
   assert.match(html, /一枚目/);
   assert.match(html, /二枚目/);
+  assert.match(html, /<div class="card">図の内容<\/div>/);
   assert.equal((html.match(/<section\b/g) || []).length, 2);
   assert.match(html, /data-marpit-pagination-total="2"/);
   await assert.rejects(access(path.join(destination, 'article.html')), { code: 'ENOENT' });

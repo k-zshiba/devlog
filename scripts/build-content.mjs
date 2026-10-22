@@ -76,7 +76,7 @@ export async function buildSlides(source = 'docs', destination = '_site') {
     await mkdir(path.dirname(output), { recursive: true });
     const result = spawnSync(process.execPath, [
       require.resolve('@marp-team/marp-cli/marp-cli.js'),
-      '--no-config', '--no-stdin', path.join(source, slide), '--output', output,
+      '--no-config', '--no-stdin', '--html', path.join(source, slide), '--output', output,
     ], { stdio: ['ignore', 'inherit', 'inherit'] });
     if (result.error) throw result.error;
     if (result.status !== 0) throw new Error(`Marp failed for ${slide} (exit ${result.status})`);

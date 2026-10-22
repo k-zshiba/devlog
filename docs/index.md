@@ -13,4 +13,5 @@ title: devlog
 
 ## スライド
 
+- [PostgreSQLの型変換：SQLからC関数まで]({{ '/postgresql-casts/casts.html' | relative_url }})
 - [Marp スライドの書き方]({{ '/marp-example.html' | relative_url }})
