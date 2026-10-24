@@ -2003,7 +2003,8 @@ section.appendix { font-size: 23px; }
       → build_coercion_expression()
                                  FuncExpr を作る
 </code></pre>
-<p>明示キャストなので、<strong>代入用 <code>a</code></strong> のキャストを利用できる。<br />
+<p><code>bigint → integer</code> は <strong>代入・明示キャストで利用可（<code>a</code>）</strong>。<br />
+今回は <code>n::integer</code> と明示しているため、この変換を使える。<br />
 方式は <strong>関数 <code>f</code></strong> なので、呼び出しを表す <code>FuncExpr</code> を作る。</p>
 <p class="source">根拠：<a href="https://github.com/postgres/postgres/blob/master/src/backend/parser/parse_expr.c">parse_expr.c</a> / transformTypeCast()、<a href="https://github.com/postgres/postgres/blob/master/src/backend/parser/parse_coerce.c">parse_coerce.c</a> / coerce_to_target_type()・coerce_type()</p>
 <footer>PostgreSQL / 型変換</footer>
@@ -3394,7 +3395,7 @@ textからintegerの行はpg_castにありませんが、明示キャストは�
 ここからは、bigintの列nをintegerへ変換する処理を調べます。定数だけの式は計画時に評価される場合があるため、列の値を使います。
 型解析時にカタログを調べて変換用の式を作り、実行器に渡します。</p></div><div class="bespoke-marp-note" data-index="14" tabindex="0"><p>⑤ SQLからC / 55秒 / 累計 10:00
 SQLの型を調べる型解析の段階で、キャストを適用できるか確認し、変換用の式を作ります。図では主要な呼び出しだけを示しています。
-find_coercion_pathwayは、変換前後の型の組でpg_castを検索します。今回の明示キャストでは、aの登録を利用できます。方式がfなので関数のOIDを取得し、build_coercion_expressionがFuncExprを作ります。
+find_coercion_pathwayは、変換前後の型の組でpg_castを検索します。bigintからintegerへの変換はcastcontextがaで、代入と明示キャストで使えることを意味します。今回はn::integerと明示しているため、この登録を利用できます。方式がfなので関数のOIDを取得し、build_coercion_expressionがFuncExprを作ります。
 なお、coerce_to_target_type内の変換可能性の確認でも、can_coerce_typeから経路を調べます。</p></div><div class="bespoke-marp-note" data-index="15" tabindex="0"><p>⑤ SQLからC / 45秒 / 累計 10:45
 pg_castのcastfuncとpg_procのoidを結合すると、prosrcにint84が見つかります。この関数の言語はinternalで、prosrcは組み込みの実装を示します。
 int8.cでint84を検索すると、C関数が見つかります。int8からint4への変換なのでint84、という名前です。prosrcの意味は言語によって異なります。</p></div><div class="bespoke-marp-note" data-index="16" tabindex="0"><p>⑤ SQLからC / 65秒 / 累計 11:50
