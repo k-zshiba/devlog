@@ -457,7 +457,8 @@ transformTypeCast()                ::integer を解析
                                  FuncExpr を作る
 ```
 
-明示キャストなので、**代入用 `a`** のキャストを利用できる。
+`bigint → integer` は **代入・明示キャストで利用可（`a`）**。
+今回は `n::integer` と明示しているため、この変換を使える。
 方式は **関数 `f`** なので、呼び出しを表す `FuncExpr` を作る。
 
 <p class="source">根拠：<a href="https://github.com/postgres/postgres/blob/master/src/backend/parser/parse_expr.c">parse_expr.c</a> / transformTypeCast()、<a href="https://github.com/postgres/postgres/blob/master/src/backend/parser/parse_coerce.c">parse_coerce.c</a> / coerce_to_target_type()・coerce_type()</p>
@@ -465,7 +466,7 @@ transformTypeCast()                ::integer を解析
 <!--
 ⑤ SQLからC / 55秒 / 累計 10:00
 SQLの型を調べる型解析の段階で、キャストを適用できるか確認し、変換用の式を作ります。図では主要な呼び出しだけを示しています。
-find_coercion_pathwayは、変換前後の型の組でpg_castを検索します。今回の明示キャストでは、aの登録を利用できます。方式がfなので関数のOIDを取得し、build_coercion_expressionがFuncExprを作ります。
+find_coercion_pathwayは、変換前後の型の組でpg_castを検索します。bigintからintegerへの変換はcastcontextがaで、代入と明示キャストで使えることを意味します。今回はn::integerと明示しているため、この登録を利用できます。方式がfなので関数のOIDを取得し、build_coercion_expressionがFuncExprを作ります。
 なお、coerce_to_target_type内の変換可能性の確認でも、can_coerce_typeから経路を調べます。
 -->
 
