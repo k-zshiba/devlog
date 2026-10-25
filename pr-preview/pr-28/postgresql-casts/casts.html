@@ -1485,7 +1485,8 @@ section.appendix { font-size: 23px; }
 <pre is="marp-pre" data-auto-scaling="downscale-only"><code class="language-sql"><span class="hljs-keyword">SELECT</span> <span class="hljs-string">&#x27;hello&#x27;</span>::<span class="hljs-type">varchar</span>::text;
 <span class="hljs-comment">-- hello</span>
 </code></pre>
-<p>この型変換では、<strong>変換関数を呼ばずに内部表現を再利用する</strong>。</p>
+<p>varcharとtextは、値をメモリ上で保持する形式（内部表現）が同じ。<br />
+そのため、<strong>データを作り直さず、そのままtextとして扱う</strong>。変換関数を呼ぶ必要もない。</p>
 <p class="small">varchar(n) への変換では、長さ制限を適用する処理が加わる場合がある。</p>
 <p class="source">根拠：<a href="https://github.com/postgres/postgres/blob/master/src/include/catalog/pg_cast.dat">pg_cast.dat</a> / varchar → text、<a href="https://github.com/postgres/postgres/blob/master/src/backend/parser/parse_coerce.c">parse_coerce.c</a> / coerce_type()</p>
 <footer>PostgreSQL / 型変換</footer>
@@ -2809,7 +2810,7 @@ section.appendix { font-size: 23px; }
 <li><strong>変換前と変換後の型</strong> を確認する</li>
 <li><strong>暗黙・代入・明示</strong> のどの場面かを確認する</li>
 <li><strong><code>pg_cast</code> と型解析の規則</strong> で許可条件・方式を調べる</li>
-<li><strong>変換関数や入力関数のC実装</strong> を読む</li>
+<li>方式に応じて、<strong>変換関数・入出力関数や関連処理の実装</strong> を読む</li>
 </ol>
 <p class="small">型未指定の文字列リテラルは unknown。<br />pg_castに登録がない変換には、自動I/O変換などの規則もある。</p>
 <footer>PostgreSQL / 型変換</footer>
@@ -3384,7 +3385,7 @@ castcontextのiはimplicit、castmethodのiはinput/outputです。同じ文字�
 fは変換関数、bは内部表現の再利用、iは出力関数と入力関数による変換です。代表的な式ノードはそれぞれFuncExpr、RelabelType、CoerceViaIOです。配列の要素変換やドメインの制約検査には、これらと別の式ノードも使われます。</p></div><div class="bespoke-marp-note" data-index="9" tabindex="0"><p>④ 3方式 / 40秒 / 累計 6:25
 bigintからintegerへの変換ではint4(bigint)を呼びます。この関数は、値がintegerの範囲内かを検査してから変換します。Cの実装は次章で追います。
 冒頭のnumericからintegerもfですが、使う関数は異なります。</p></div><div class="bespoke-marp-note" data-index="10" tabindex="0"><p>④ 3方式 / 35秒 / 累計 7:00
-varcharからtextでは、値の内部表現を再利用できます。RelabelTypeは、式を変換先の型として扱うためのノードです。
+varcharとtextは値をメモリ上で保持する形式が同じなので、データを作り直さず、そのままtextとして扱えます。RelabelTypeは、式を変換先の型として扱うためのノードです。
 varchar(n)への変換には、長さ制限を適用する処理が加わる場合があります。また、内部表現を再利用できるかどうかも、変換の方向ごとに確認が必要です。</p></div><div class="bespoke-marp-note" data-index="11" tabindex="0"><p>④ 3方式 / 40秒 / 累計 7:40
 元の型の出力関数がCの文字列を作り、変換先の型の入力関数が読み込みます。この途中の文字列は、SQLのtext型の値とは別です。
 この例では、自動I/O変換によってtextoutとint4inが使われます。int4inは'42'を整数として読めますが、小数点を含む'1.5'は受け入れません。
@@ -3410,7 +3411,7 @@ PG_GETARG_INT64で引数を取り出し、32ビット整数の最小値・最大
 冒頭の1.5はnumeric型で、integerへの変換関数が値を丸めます。一方、'1.5'::integerでは整数の入力関数int4inが文字列を読むため、小数点のところで失敗します。
 '1.5'::numeric::integerなら、まずnumericの入力関数で読み込み、その数値をintegerへ変換するので2になります。
 冒頭の結果の違いを説明できたので、型変換を調べる手順として整理します。</p></div><div class="bespoke-marp-note" data-index="20" tabindex="0"><p>⑦ まとめ / 30秒 / 累計 15:00
-まず変換前後の型と、暗黙・代入・明示のどの場面かを確認します。次にpg_castの登録を調べ、使われる関数の処理を読みます。
+まず変換前後の型と、暗黙・代入・明示のどの場面かを確認します。次にpg_castの登録と型解析の規則を調べ、方式に応じた実装を読みます。
 bigintからintegerの例では、castcontextはa、castmethodはf、SQLの関数はint4(bigint)、Cの実装はint84でした。
 本編はここまでです。付録は質疑用で、15分に含みません。</p></div><div class="bespoke-marp-note" data-index="21" tabindex="0"><p>付録 / 本編の時間外
 公式文書と、PostgreSQL公式GitHubのmasterブランチへのリンクです。</p></div><div class="bespoke-marp-note" data-index="22" tabindex="0"><p>付録 / 本編の時間外
